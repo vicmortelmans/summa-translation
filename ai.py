@@ -17,8 +17,8 @@ from typing import List
 
 
 OPENAI_API_BASE = "https://api.openai.com/v1"
-OPENAI_API_KEY = "YOUR_OPENAI_API_KEY"
-OPENAI_MODEL = "gpt-4o-mini"
+OPENAI_API_KEY = "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"
+OPENAI_MODEL = "gpt-5.6-luna"
 VLLM_MODEL_PATH = "/path/to/vllm/model"
 
 
@@ -64,8 +64,8 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
         )
 
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY, api_base=OPENAI_API_BASE)
-    except AttributeError:
+        client = openai.OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_API_BASE)
+    except TypeError:
         openai.api_key = OPENAI_API_KEY
         openai.api_base = OPENAI_API_BASE
         client = openai
@@ -79,9 +79,8 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=1024,
+                max_completion_tokens=1024,
             )
-            content = completion.choices[0].message["content"].strip()
         else:
             completion = client.ChatCompletion.create(
                 model=OPENAI_MODEL,
@@ -91,7 +90,12 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
                 ],
                 max_tokens=1024,
             )
-            content = completion.choices[0].message["content"].strip()
+
+        message = completion.choices[0].message
+        if isinstance(message, dict):
+            content = message.get("content", "").strip()
+        else:
+            content = getattr(message, "content", "").strip()
         responses.append(content)
 
     return responses

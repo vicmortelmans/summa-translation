@@ -1,0 +1,44 @@
+You are aligning a Latin source text with its published Dutch translation.
+
+Your task is to extract a parallel corpus alignment between the two texts.
+
+Source Latin:
+{latin}
+
+Published Dutch translation:
+{dutch}
+
+Instructions
+
+- Create one record for every meaningful Latin word or contiguous Latin expression that is explicitly translated in the Dutch text.
+- A record represents an alignment between one contiguous Latin span and one contiguous Dutch span.
+- Prefer the smallest meaningful expression that is translated as a unit.
+- Also include individual word alignments
+- Do not create records for punctuation.
+- Do not create records for grammatical words whose translation is omitted (e.g. particles that disappear naturally in Dutch).
+- Do not infer or improve the translation. Record only what appears in the published Dutch text.
+- Every Dutch span must occur literally in the supplied Dutch translation.
+- Every Latin span must occur literally in the supplied Latin text.
+- Keep the context fragments as short as possible while uniquely identifying the occurrence.
+- If the same Latin expression occurs multiple times in the text, create one record for each occurrence.
+
+Return valid JSON only.
+
+{
+  "entries": [
+    {
+      "type": "word",
+      "latin": "",
+      "dutch": "",
+      "latin_context": "",
+      "dutch_context": ""
+    },
+    {
+      "type": "phrase",
+      "latin": "",
+      "dutch": "",
+      "latin_context": "",
+      "dutch_context": ""
+    }
+  ]
+}

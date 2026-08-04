@@ -79,8 +79,9 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
                 ],
-                max_completion_tokens=1024,
+                max_completion_tokens=10240,
             )
+            max_tokens_used = 10240
         else:
             completion = client.ChatCompletion.create(
                 model=OPENAI_MODEL,
@@ -88,7 +89,14 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": prompt},
                 ],
-                max_tokens=1024,
+                max_tokens=10240,
+            )
+            max_tokens_used = 10240
+
+        if _is_truncated(completion, max_tokens_used):
+            raise RuntimeError(
+                "AI response appears truncated: total_tokens reached the configured max tokens. "
+                "Please increase the max token limit or simplify the prompt."
             )
 
         message = completion.choices[0].message
@@ -99,6 +107,31 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
         responses.append(content)
 
     return responses
+
+
+def _is_truncated(completion, max_tokens_used: int) -> bool:
+    usage = getattr(completion, "usage", None)
+    if usage is None:
+        usage = getattr(completion, "usage", {})
+
+    total_tokens = None
+    if isinstance(usage, dict):
+        total_tokens = usage.get("total_tokens")
+    else:
+        total_tokens = getattr(usage, "total_tokens", None)
+
+    if total_tokens is not None and total_tokens >= max_tokens_used:
+        return True
+
+    try:
+        finish_reason = completion.choices[0].finish_reason
+    except Exception:
+        finish_reason = None
+
+    if finish_reason == "length":
+        return True
+
+    return False
 
 
 def _get_local_responses(prompts: List[str]) -> List[str]:

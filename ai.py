@@ -13,11 +13,13 @@ responses are printed to stdout separated by a line containing "---".
 """
 
 import argparse
+import os
+from pathlib import Path
 from typing import List
 
 
 OPENAI_API_BASE = "https://api.openai.com/v1"
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY_FILE = ".openai_api_key"
 OPENAI_MODEL = "gpt-5.6-luna"
 VLLM_MODEL_PATH = "/path/to/vllm/model"
 
@@ -48,6 +50,24 @@ def get_responses(prompts: List[str], ai: str = "online") -> List[str]:
     )
 
 
+def _load_openai_api_key() -> str:
+    env_key = os.environ.get("OPENAI_API_KEY")
+    if env_key:
+        return env_key.strip()
+
+    key_path = Path(__file__).resolve().parent / OPENAI_API_KEY_FILE
+    if key_path.exists():
+        key = key_path.read_text(encoding="utf-8").strip()
+        if key:
+            return key
+
+    raise RuntimeError(
+        "OpenAI API key not found. Please add it to the file '"
+        f"{OPENAI_API_KEY_FILE}' in the repository root or set the OPENAI_API_KEY "
+        "environment variable."
+    )
+
+
 def _get_online_responses(prompts: List[str]) -> List[str]:
     try:
         import openai
@@ -57,16 +77,12 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
             "Install it with `pip install openai`."
         ) from exc
 
-    if OPENAI_API_KEY in {"", "YOUR_OPENAI_API_KEY"}:
-        raise RuntimeError(
-            "OPENAI_API_KEY is not set. Please replace the placeholder in ai.py "
-            "with your OpenAI API key."
-        )
+    api_key = _load_openai_api_key()
 
     try:
-        client = openai.OpenAI(api_key=OPENAI_API_KEY, base_url=OPENAI_API_BASE)
+        client = openai.OpenAI(api_key=api_key, base_url=OPENAI_API_BASE)
     except TypeError:
-        openai.api_key = OPENAI_API_KEY
+        openai.api_key = api_key
         openai.api_base = OPENAI_API_BASE
         client = openai
 

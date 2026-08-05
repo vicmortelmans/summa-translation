@@ -21,7 +21,7 @@ from typing import List
 OPENAI_API_BASE = "https://api.openai.com/v1"
 OPENAI_API_KEY_FILE = ".openai_api_key"
 OPENAI_MODEL = "gpt-5.6-luna"
-VLLM_MODEL_PATH = "/path/to/vllm/model"
+VLLM_MODEL_PATH = "unsloth/gemma-3-27b-it-bnb-4bit"
 
 
 def get_responses(prompts: List[str], ai: str = "online") -> List[str]:

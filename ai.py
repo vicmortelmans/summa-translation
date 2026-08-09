@@ -13,7 +13,9 @@ responses are printed to stdout separated by a line containing "---".
 """
 
 import argparse
+import csv
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import List
 
@@ -22,6 +24,7 @@ OPENAI_API_BASE = "https://api.openai.com/v1"
 OPENAI_API_KEY_FILE = ".openai_api_key"
 OPENAI_MODEL = "gpt-5.6-luna"
 VLLM_MODEL_PATH = "unsloth/gemma-3-27b-it-bnb-4bit"
+TOKEN_LOG_FILE = "tokens.csv"
 
 
 def get_responses(prompts: List[str], ai: str = "online") -> List[str]:
@@ -87,6 +90,7 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
         client = openai
 
     responses = []
+    total_tokens_used = 0
     for prompt in prompts:
         if hasattr(client, "chat"):
             completion = client.chat.completions.create(
@@ -109,6 +113,8 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
             )
             max_tokens_used = 10240
 
+        total_tokens_used += _get_usage_token_count(getattr(completion, "usage", None))
+
         if _is_truncated(completion, max_tokens_used):
             raise RuntimeError(
                 "AI response appears truncated: total_tokens reached the configured max tokens. "
@@ -122,7 +128,60 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
             content = getattr(message, "content", "").strip()
         responses.append(content)
 
+    if prompts:
+        _log_token_usage(prompts, OPENAI_MODEL, total_tokens_used)
+
     return responses
+
+
+def _get_usage_token_count(usage) -> int:
+    if usage is None:
+        return 0
+
+    if isinstance(usage, dict):
+        total_tokens = usage.get("total_tokens")
+        if total_tokens is not None:
+            return int(total_tokens)
+
+        prompt_tokens = usage.get("prompt_tokens", usage.get("input_tokens", 0)) or 0
+        completion_tokens = usage.get("completion_tokens", usage.get("output_tokens", 0)) or 0
+        completion_details = usage.get("completion_tokens_details")
+        if completion_details is None:
+            completion_details = usage.get("output_tokens_details")
+        reasoning_tokens = 0
+        if isinstance(completion_details, dict):
+            reasoning_tokens = completion_details.get("reasoning_tokens", 0) or 0
+        elif completion_details is not None:
+            reasoning_tokens = getattr(completion_details, "reasoning_tokens", 0) or 0
+        return int(prompt_tokens) + int(completion_tokens) + int(reasoning_tokens)
+
+    total_tokens = getattr(usage, "total_tokens", None)
+    if total_tokens is not None:
+        return int(total_tokens)
+
+    prompt_tokens = getattr(usage, "prompt_tokens", getattr(usage, "input_tokens", 0)) or 0
+    completion_tokens = getattr(usage, "completion_tokens", getattr(usage, "output_tokens", 0)) or 0
+    completion_details = getattr(usage, "completion_tokens_details", getattr(usage, "output_tokens_details", None))
+    reasoning_tokens = 0
+    if completion_details is not None:
+        reasoning_tokens = getattr(completion_details, "reasoning_tokens", 0) or 0
+    return int(prompt_tokens) + int(completion_tokens) + int(reasoning_tokens)
+
+
+def _log_token_usage(prompts: List[str], model_name: str, total_tokens_used: int) -> None:
+    log_path = Path(__file__).resolve().parent / TOKEN_LOG_FILE
+    write_header = not log_path.exists() or log_path.stat().st_size == 0
+
+    with log_path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        if write_header:
+            writer.writerow(["timestamp", "model", "prompt_count", "total_tokens"])
+        writer.writerow([
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            model_name,
+            len(prompts),
+            total_tokens_used,
+        ])
 
 
 def _is_truncated(completion, max_tokens_used: int) -> bool:

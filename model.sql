@@ -47,7 +47,7 @@ CREATE TABLE TerminologySet (
     DutchContext TEXT,
     Type TEXT,
 
-    PRIMARY KEY (LatinWord, DutchWord)
+    PRIMARY KEY (LatinWord, DutchWord, LatinContext)
 );
 
 

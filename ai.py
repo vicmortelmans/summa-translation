@@ -17,6 +17,7 @@ import csv
 import os
 from datetime import datetime, timezone
 from pathlib import Path
+from time import perf_counter
 from typing import List
 
 
@@ -25,6 +26,7 @@ OPENAI_API_KEY_FILE = ".openai_api_key"
 OPENAI_MODEL = "gpt-5.6-luna"
 VLLM_MODEL_PATH = "unsloth/gemma-3-27b-it-bnb-4bit"
 TOKEN_LOG_FILE = "tokens.csv"
+TIME_LOG_FILE = "time.csv"
 
 
 def get_responses(prompts: List[str], ai: str = "online") -> List[str]:
@@ -228,6 +230,7 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
     responses = []
 
     try:
+        start = perf_counter()
         for generation in llm.generate(
             prompts,
             sampling_params=sampling_params,
@@ -237,13 +240,33 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
                 responses.append("")
                 continue
             responses.append(generation.outputs[0].text.strip())
+        elapsed = perf_counter() - start
     finally:
         try:
             llm.close()
         except AttributeError:
             llm.shutdown()
 
+    if prompts:
+        _log_time_usage(prompts, VLLM_MODEL_PATH, elapsed)
+
     return responses
+
+
+def _log_time_usage(prompts: List[str], model_name: str, seconds: float) -> None:
+    log_path = Path(__file__).resolve().parent / TIME_LOG_FILE
+    write_header = not log_path.exists() or log_path.stat().st_size == 0
+
+    with log_path.open("a", encoding="utf-8", newline="") as handle:
+        writer = csv.writer(handle)
+        if write_header:
+            writer.writerow(["timestamp", "model", "prompt_count", "duration_seconds"])
+        writer.writerow([
+            datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
+            model_name,
+            len(prompts),
+            round(seconds, 6),
+        ])
 
 
 def _print_responses(responses: List[str]) -> None:

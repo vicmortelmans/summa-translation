@@ -251,6 +251,7 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
     for generation in llm.generate(
         tokenized_prompts,
         sampling_params=sampling_params,
+        use_tqdm=False,
     ):
         if not generation.outputs:
             responses.append("")

@@ -13,13 +13,15 @@ Args:
     num_rows: Maximum number of rows to process (default: 100)
 """
 
-import sqlite3
-import json
-import sys
 import argparse
-from pathlib import Path
-from typing import List, Tuple, Optional
+import ast
+import json
+import re
+import sqlite3
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 from ai import get_responses
 
@@ -68,18 +70,38 @@ def compose_prompts(rows: List[Tuple[str, str, str]], template: str) -> List[str
 
 def parse_json_response(response: str) -> Optional[dict]:
     """Parse JSON from AI response, handling potential formatting issues."""
-    try:
-        # Try direct JSON parsing first
-        return json.loads(response)
-    except json.JSONDecodeError:
+    if not response:
+        return None
+
+    cleaned = response.strip()
+
+    # Strip markdown code fences if present
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.I).strip()
+    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.I).strip()
+
+    # If the entire JSON is wrapped in quotes, unquote it
+    if (cleaned.startswith('"') and cleaned.endswith('"')) or (
+        cleaned.startswith("'") and cleaned.endswith("'")
+    ):
         try:
-            # Try extracting JSON from response
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                return json.loads(response[start:end])
+            cleaned = ast.literal_eval(cleaned)
+        except (ValueError, SyntaxError):
+            cleaned = cleaned[1:-1]
+        cleaned = cleaned.strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"(\{|\[)", cleaned):
+        try:
+            parsed, _ = decoder.raw_decode(cleaned[match.start():])
+            return parsed
         except json.JSONDecodeError:
-            pass
+            continue
+
     return None
 
 
@@ -150,17 +172,22 @@ def process_batch(
     ):
         try:
             if verbosity >= 2:
-                print(f"\n--- Processing {idx + 1}/{len(rows)} ---")
-                print(f"Lemma ID: {lemma_id}")
-                print(f"Prompt:\n{prompt}")
-                print(f"\nResponse:\n{response}")
+                print(f"\n--- Processing {idx + 1}/{len(rows)} ---", flush=True)
+                print(f"Lemma ID: {lemma_id}", flush=True)
+                print(f"Prompt:\n{prompt}", flush=True)
+                print(f"\nResponse:\n{response}", flush=True)
 
             parsed = parse_json_response(response)
 
-            if parsed:
-                inserted, errors = insert_terminology(cursor, parsed, lemma_id)
-                terminology_inserted += inserted
-                terminology_errors += errors
+            if not parsed:
+                update_errors += 1
+                if verbosity >= 1:
+                    print(f"Unable to parse JSON response for lemma {lemma_id}")
+                continue
+
+            inserted, errors = insert_terminology(cursor, parsed, lemma_id)
+            terminology_inserted += inserted
+            terminology_errors += errors
 
             # Mark as processed
             cursor.execute(

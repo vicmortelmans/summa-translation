@@ -226,26 +226,19 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
         )
 
     llm = LLM(model=VLLM_MODEL_PATH)
-    sampling_params = SamplingParams(temperature=0.7, top_p=0.95)
+    sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=10240)
     responses = []
 
-    try:
-        start = perf_counter()
-        for generation in llm.generate(
-            prompts,
-            sampling_params=sampling_params,
-            max_tokens=1024,
-        ):
-            if not generation.outputs:
-                responses.append("")
-                continue
-            responses.append(generation.outputs[0].text.strip())
-        elapsed = perf_counter() - start
-    finally:
-        try:
-            llm.close()
-        except AttributeError:
-            llm.shutdown()
+    start = perf_counter()
+    for generation in llm.generate(
+        prompts,
+        sampling_params=sampling_params,
+    ):
+        if not generation.outputs:
+            responses.append("")
+            continue
+        responses.append(generation.outputs[0].text.strip())
+    elapsed = perf_counter() - start
 
     if prompts:
         _log_time_usage(prompts, VLLM_MODEL_PATH, elapsed)

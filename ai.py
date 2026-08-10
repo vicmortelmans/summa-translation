@@ -211,6 +211,14 @@ def _is_truncated(completion, max_tokens_used: int) -> bool:
     return False
 
 
+def _tokenize_prompts(prompts: List[str], tokenizer) -> list[list[int]]:
+    formatted_prompts: list[list[int]] = []
+    for prompt in prompts:
+        token_ids = tokenizer.encode(prompt, add_special_tokens=False)
+        formatted_prompts.append(token_ids)
+    return formatted_prompts
+
+
 def _get_local_responses(prompts: List[str]) -> List[str]:
     try:
         from vllm import LLM, SamplingParams
@@ -225,13 +233,23 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
             "VLLM_MODEL_PATH is not configured. Please set a valid model path in ai.py."
         )
 
-    llm = LLM(model=VLLM_MODEL_PATH)
+    speculative_config = {
+        "method": "ngram",
+        "num_speculative_tokens": 5,
+        "prompt_lookup_max": 4,
+    }
+
+    llm = LLM(model=VLLM_MODEL_PATH,
+        enable_prefix_caching=True,
+        speculative_config=speculative_config)
+    tokenizer = llm.get_tokenizer()
+    tokenized_prompts = _tokenize_prompts(prompts, tokenizer)
     sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=10240)
     responses = []
 
     start = perf_counter()
     for generation in llm.generate(
-        prompts,
+        tokenized_prompts,
         sampling_params=sampling_params,
     ):
         if not generation.outputs:

@@ -212,10 +212,18 @@ def _is_truncated(completion, max_tokens_used: int) -> bool:
 
 
 def _tokenize_prompts(prompts: List[str], tokenizer) -> list[list[int]]:
-    formatted_prompts: list[list[int]] = []
+    # Note: this is NOT returning tokenized prompts, but rather the formatted prompts that vLLM expects.
+    formatted_prompts: list[str] = []
     for prompt in prompts:
-        token_ids = tokenizer.encode(prompt, add_special_tokens=False)
-        formatted_prompts.append(token_ids)
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ]
+        formatted_prompt = tokenizer.apply_chat_template(messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        formatted_prompts.append(formatted_prompt)
     return formatted_prompts
 
 
@@ -243,6 +251,8 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
         enable_prefix_caching=True,
         speculative_config=speculative_config)
     tokenizer = llm.get_tokenizer()
+    print(f"Using vLLM model: {VLLM_MODEL_PATH} with tokenizer: {tokenizer.__class__.__name__}")
+    print(f"{tokenizer.chat_template}")
     tokenized_prompts = _tokenize_prompts(prompts, tokenizer)
     sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=10240)
     responses = []
@@ -284,7 +294,7 @@ def _log_time_usage(prompts: List[str], model_name: str, seconds: float) -> None
 def _print_responses(responses: List[str]) -> None:
     for index, response in enumerate(responses):
         if index > 0:
-            print("---")
+            print("--- ai.py response separator ---")
         print(response)
 
 

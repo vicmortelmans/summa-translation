@@ -211,6 +211,22 @@ def _is_truncated(completion, max_tokens_used: int) -> bool:
     return False
 
 
+def _tokenize_prompts(prompts: List[str], tokenizer) -> list[list[int]]:
+    # Note: this is NOT returning tokenized prompts, but rather the formatted prompts that vLLM expects.
+    formatted_prompts: list[str] = []
+    for prompt in prompts:
+        messages = [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": prompt},
+        ]
+        formatted_prompt = tokenizer.apply_chat_template(messages,
+            tokenize=False,
+            add_generation_prompt=True
+        )
+        formatted_prompts.append(formatted_prompt)
+    return formatted_prompts
+
+
 def _get_local_responses(prompts: List[str]) -> List[str]:
     try:
         from vllm import LLM, SamplingParams
@@ -225,27 +241,33 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
             "VLLM_MODEL_PATH is not configured. Please set a valid model path in ai.py."
         )
 
-    llm = LLM(model=VLLM_MODEL_PATH)
-    sampling_params = SamplingParams(temperature=0.7, top_p=0.95)
+    speculative_config = {
+        "method": "ngram",
+        "num_speculative_tokens": 5,
+        "prompt_lookup_max": 4,
+    }
+
+    llm = LLM(model=VLLM_MODEL_PATH,
+        enable_prefix_caching=True,
+        speculative_config=speculative_config)
+    tokenizer = llm.get_tokenizer()
+    print(f"Using vLLM model: {VLLM_MODEL_PATH} with tokenizer: {tokenizer.__class__.__name__}")
+    print(f"{tokenizer.chat_template}")
+    tokenized_prompts = _tokenize_prompts(prompts, tokenizer)
+    sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=10240)
     responses = []
 
-    try:
-        start = perf_counter()
-        for generation in llm.generate(
-            prompts,
-            sampling_params=sampling_params,
-            max_tokens=1024,
-        ):
-            if not generation.outputs:
-                responses.append("")
-                continue
-            responses.append(generation.outputs[0].text.strip())
-        elapsed = perf_counter() - start
-    finally:
-        try:
-            llm.close()
-        except AttributeError:
-            llm.shutdown()
+    start = perf_counter()
+    for generation in llm.generate(
+        tokenized_prompts,
+        sampling_params=sampling_params,
+        use_tqdm=False,
+    ):
+        if not generation.outputs:
+            responses.append("")
+            continue
+        responses.append(generation.outputs[0].text.strip())
+    elapsed = perf_counter() - start
 
     if prompts:
         _log_time_usage(prompts, VLLM_MODEL_PATH, elapsed)
@@ -272,7 +294,7 @@ def _log_time_usage(prompts: List[str], model_name: str, seconds: float) -> None
 def _print_responses(responses: List[str]) -> None:
     for index, response in enumerate(responses):
         if index > 0:
-            print("---")
+            print("--- ai.py response separator ---")
         print(response)
 
 

@@ -13,13 +13,15 @@ Args:
     num_rows: Maximum number of rows to process (default: 100)
 """
 
-import sqlite3
-import json
-import sys
 import argparse
-from pathlib import Path
-from typing import List, Tuple, Optional
+import ast
+import json
+import re
+import sqlite3
+import sys
 from datetime import datetime
+from pathlib import Path
+from typing import List, Optional, Tuple
 
 from ai import get_responses
 
@@ -68,18 +70,38 @@ def compose_prompts(rows: List[Tuple[str, str, str]], template: str) -> List[str
 
 def parse_json_response(response: str) -> Optional[dict]:
     """Parse JSON from AI response, handling potential formatting issues."""
-    try:
-        # Try direct JSON parsing first
-        return json.loads(response)
-    except json.JSONDecodeError:
+    if not response:
+        return None
+
+    cleaned = response.strip()
+
+    # Strip markdown code fences if present
+    cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.I).strip()
+    cleaned = re.sub(r"\s*```$", "", cleaned, flags=re.I).strip()
+
+    # If the entire JSON is wrapped in quotes, unquote it
+    if (cleaned.startswith('"') and cleaned.endswith('"')) or (
+        cleaned.startswith("'") and cleaned.endswith("'")
+    ):
         try:
-            # Try extracting JSON from response
-            start = response.find("{")
-            end = response.rfind("}") + 1
-            if start >= 0 and end > start:
-                return json.loads(response[start:end])
+            cleaned = ast.literal_eval(cleaned)
+        except (ValueError, SyntaxError):
+            cleaned = cleaned[1:-1]
+        cleaned = cleaned.strip()
+
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        pass
+
+    decoder = json.JSONDecoder()
+    for match in re.finditer(r"(\{|\[)", cleaned):
+        try:
+            parsed, _ = decoder.raw_decode(cleaned[match.start():])
+            return parsed
         except json.JSONDecodeError:
-            pass
+            continue
+
     return None
 
 
@@ -150,17 +172,22 @@ def process_batch(
     ):
         try:
             if verbosity >= 2:
-                print(f"\n--- Processing {idx + 1}/{len(rows)} ---")
-                print(f"Lemma ID: {lemma_id}")
-                print(f"Prompt:\n{prompt}")
-                print(f"\nResponse:\n{response}")
+                print(f"\n--- extract_terms.py processing {idx + 1}/{len(rows)} ---", flush=True)
+                print(f"Lemma ID: {lemma_id}", flush=True)
+                print(f"Prompt:\n{prompt}", flush=True)
+                print(f"\nResponse:\n{response}", flush=True)
 
             parsed = parse_json_response(response)
 
-            if parsed:
-                inserted, errors = insert_terminology(cursor, parsed, lemma_id)
-                terminology_inserted += inserted
-                terminology_errors += errors
+            if not parsed:
+                update_errors += 1
+                if verbosity >= 1:
+                    print(f"extract_terms.py: Unable to parse JSON response for lemma {lemma_id}")
+                continue
+
+            inserted, errors = insert_terminology(cursor, parsed, lemma_id)
+            terminology_inserted += inserted
+            terminology_errors += errors
 
             # Mark as processed
             cursor.execute(
@@ -170,12 +197,12 @@ def process_batch(
             rows_processed += 1
 
             if verbosity >= 1:
-                print(f"Processed: {lemma_id}")
+                print(f"extract_terms.py: Processed: {lemma_id}")
 
         except Exception as e:
             update_errors += 1
             if verbosity >= 1:
-                print(f"Error processing {lemma_id}: {e}")
+                print(f"extract_terms.py: Error processing {lemma_id}: {e}")
 
     conn.commit()
     return rows_processed, terminology_inserted, terminology_errors, update_errors
@@ -233,38 +260,38 @@ Examples:
 
     # Validate inputs
     if args.num_rows <= 0:
-        print("Error: num_rows must be positive", file=sys.stderr)
+        print("extract_terms.py: Error: num_rows must be positive", file=sys.stderr)
         sys.exit(1)
 
     db_path = Path(args.database)
     if not db_path.exists():
-        print(f"Error: Database not found: {args.database}", file=sys.stderr)
+        print(f"extract_terms.py: Error: Database not found: {args.database}", file=sys.stderr)
         sys.exit(1)
 
     template_path = Path(args.template)
     if not template_path.exists():
-        print(f"Error: Template not found: {args.template}", file=sys.stderr)
+        print(f"extract_terms.py: Error: Template not found: {args.template}", file=sys.stderr)
         sys.exit(1)
 
     if args.verbose:
-        print(f"Database: {db_path.absolute()}")
-        print(f"Template: {template_path.absolute()}")
-        print(f"AI backend: {args.ai}")
-        print(f"Max rows to process: {args.num_rows}")
+        print(f"extract_terms.py: Database: {db_path.absolute()}")
+        print(f"extract_terms.py: Template: {template_path.absolute()}")
+        print(f"extract_terms.py: AI backend: {args.ai}")
+        print(f"extract_terms.py: Max rows to process: {args.num_rows}")
         print()
 
     # Load template
     try:
         template = load_template(str(template_path))
     except Exception as e:
-        print(f"Error loading template: {e}", file=sys.stderr)
+        print(f"extract_terms.py: Error loading template: {e}", file=sys.stderr)
         sys.exit(1)
 
     # Connect to database
     try:
         conn = sqlite3.connect(str(db_path))
     except sqlite3.Error as e:
-        print(f"Database error: {e}", file=sys.stderr)
+        print(f"extract_terms.py: Database error: {e}", file=sys.stderr)
         sys.exit(1)
 
     start_time = datetime.now()
@@ -283,23 +310,23 @@ Examples:
             rows = fetch_unprocessed_rows(conn, batch_limit)
             if not rows:
                 if args.verbose:
-                    print("No more unprocessed rows found")
+                    print("extract_terms.py: No more unprocessed rows found")
                 break
 
             if args.verbose:
-                print(f"\nBatch: {len(rows)} rows fetched")
+                print(f"extract_terms.py: Batch: {len(rows)} rows fetched")
 
             # Compose prompts
             prompts = compose_prompts(rows, template)
 
             # Get responses from AI
             if args.verbose:
-                print(f"Processing {len(prompts)} prompts via {args.ai}...")
+                print(f"extract_terms.py: Processing {len(prompts)} prompts via {args.ai}...")
 
             try:
                 responses = get_responses(prompts, ai=args.ai)
             except Exception as e:
-                print(f"Error calling AI service: {e}", file=sys.stderr)
+                print(f"extract_terms.py: Error calling AI service: {e}", file=sys.stderr)
                 sys.exit(1)
 
             # Process batch and update database
@@ -316,7 +343,7 @@ Examples:
 
             if args.verbose:
                 print(
-                    f"Batch complete: {processed} rows, "
+                    f"extract_terms.py: Batch complete: {processed} rows, "
                     f"{inserted} terminology entries, "
                     f"{errors} errors"
                 )
@@ -330,11 +357,11 @@ Examples:
     print("\n" + "=" * 60)
     print("EXTRACTION COMPLETE")
     print("=" * 60)
-    print(f"Rows processed:        {total_rows_processed}")
-    print(f"Terminology inserted:  {total_terminology_inserted}")
-    print(f"Terminology errors:    {total_terminology_errors}")
-    print(f"Update errors:         {total_update_errors}")
-    print(f"Time elapsed:          {elapsed}")
+    print(f"extract_terms.py: Rows processed:        {total_rows_processed}")
+    print(f"extract_terms.py: Terminology inserted:  {total_terminology_inserted}")
+    print(f"extract_terms.py: Terminology errors:    {total_terminology_errors}")
+    print(f"extract_terms.py: Update errors:         {total_update_errors}")
+    print(f"extract_terms.py: Time elapsed:          {elapsed}")
     print("=" * 60)
 
 

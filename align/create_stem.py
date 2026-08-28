@@ -68,9 +68,19 @@ def iter_valid_lemma_pairs(root: ET.Element):
         yield normalize_text(latin_node), normalize_text(nl_node)
 
 
+def strip_periods_in_bracketed_references(text):
+    def remove_periods(match):
+        return match.group(0).replace(".", "")
+
+    return re.sub(r"\([^)]*\)|\[[^\]]*\]", remove_periods, text)
+
+
 def write_stem_file(output_path: Path, entries: list[str], tokenizer: PunktSentenceTokenizer) -> None:
     lines: list[str] = []
     for entry in entries:
+        # Remove periods inside bracketed references so they do not confuse sentence detection.
+        entry = strip_periods_in_bracketed_references(entry)
+
         sentences = tokenizer.tokenize(entry)
         for sentence in sentences:
             # Separate common punctuation from words.

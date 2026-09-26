@@ -54,7 +54,6 @@ class Config:
     ignore_case: bool = False
     ignore_punctuation: bool = True
     show_latin: bool = True
-    show_sentence_ids: bool = True
     highlight_reference: bool = False
 
 
@@ -458,36 +457,35 @@ def generate_document(
             current_reference = group
             group_count += 1
             doc.add_heading(group, level=1)
+            if config.show_latin:
+                p_latin = doc.add_paragraph(style="Latin Source")
+            p_reference = doc.add_paragraph(style="Comparison Translation")
+            r = p_reference.add_run("REFERENCE")
+            r.bold = True
+            r.font.color.rgb = RGBColor(31, 78, 121)
+            p_reference.add_run("\n")
+            p_candidate = {}
+            for name in candidate_names:
+                p_candidate[name] = doc.add_paragraph(style="Comparison Translation")
+                r = p_candidate[name].add_run(name.upper())
+                r.bold = True
+                r.font.color.rgb = RGBColor(70, 70, 70)
+                p_candidate[name].add_run("\n")
 
         sentence_count += 1
 
-        if config.show_sentence_ids:
-            p = doc.add_paragraph(style="Sentence ID")
-            p.add_run(f"Sentence {sentence_id}")
-
         if config.show_latin and ref_item.get("latin"):
-            p = doc.add_paragraph(style="Latin Source")
-            p.add_run(ref_item["latin"])
+            p_latin.add_run(ref_item["latin"])
 
         # Reference translation.
-        p = doc.add_paragraph(style="Comparison Translation")
-        r = p.add_run("REFERENCE")
-        r.bold = True
-        r.font.color.rgb = RGBColor(31, 78, 121)
-        p.add_run("\n")
-        p.add_run(str(ref_item["dutch"]))
+        p_reference.add_run(str(ref_item["dutch"]))
+        p_reference.add_run(" ")
 
         # Candidate translations.
         for idx, (name, index) in enumerate(zip(candidate_names, indexes[1:])):
-            p = doc.add_paragraph(style="Comparison Translation")
-            r = p.add_run(name.upper())
-            r.bold = True
-            r.font.color.rgb = RGBColor(70, 70, 70)
-            p.add_run("\n")
-
             candidate_item = index.get(sentence_id)
             if candidate_item is None:
-                r = p.add_run("[MISSING SENTENCE]")
+                r = p_candidate[name].add_run("[MISSING SENTENCE]")
                 r.bold = True
                 r.font.color.rgb = RGBColor(192, 0, 0)
                 continue
@@ -498,14 +496,8 @@ def generate_document(
                 config,
             )
             diff_counts[name] += count_differences(operations)
-            add_diff_to_paragraph(p, operations)
-
-        # Thin separator.
-        p = doc.add_paragraph()
-        p.paragraph_format.space_after = Pt(2)
-        r = p.add_run("────────────────────────────────────────")
-        r.font.color.rgb = RGBColor(210, 210, 210)
-        r.font.size = Pt(7)
+            add_diff_to_paragraph(p_candidate[name], operations)
+            p_candidate[name].add_run(" ")
 
     # Summary at end.
     doc.add_page_break()
@@ -614,7 +606,6 @@ def main():
         ignore_case=not args.case_sensitive,
         ignore_punctuation=not args.keep_punctuation,
         show_latin=not args.no_latin,
-        show_sentence_ids=not args.no_sentence_ids,
     )
 
     try:

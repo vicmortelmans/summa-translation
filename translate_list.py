@@ -3,22 +3,9 @@ import logging
 import os
 from typing import Any
 from pathlib import Path
-
 from openai import OpenAI
+
 from pydantic import BaseModel, ConfigDict
-
-
-# ============================================================================
-# Configuration
-# ============================================================================
-
-OPENAI_API_KEY_FILE = ".openai_api_key"
-OPENAI_MODEL = "gpt-5.6-luna"
-
-VLLM_MODEL = "Qwen/Qwen3-30B-A3B-Instruct-2507"
-VLLM_BASE_URL = "http://localhost:8000/v1"
-# Running the server: 
-#   vllm serve Qwen/Qwen3-30B-A3B-Instruct-2507 --max-model-len 32768 --performance-mode throughput
 
 
 # ============================================================================
@@ -75,44 +62,6 @@ class TranslationResult(BaseModel):
     translations: list[Translation]
 
 
-# This same schema is used by vLLM.
-TRANSLATION_SCHEMA = TranslationResult.model_json_schema()
-
-
-# ============================================================================
-# Clients
-# ============================================================================
-
-def _load_openai_api_key() -> str:
-    env_key = os.environ.get("OPENAI_API_KEY")
-    if env_key:
-        return env_key.strip()
-
-    key_path = Path(__file__).resolve().parent / OPENAI_API_KEY_FILE
-    if key_path.exists():
-        key = key_path.read_text(encoding="utf-8").strip()
-        if key:
-            return key
-
-    raise RuntimeError(
-        "OpenAI API key not found. Please add it to the file '"
-        f"{OPENAI_API_KEY_FILE}' in the repository root or set the OPENAI_API_KEY "
-        "environment variable."
-    )
-
-
-api_key = _load_openai_api_key()
-openai_client = OpenAI(
-    api_key=api_key,
-)
-
-vllm_client = OpenAI(
-    base_url=VLLM_BASE_URL,
-    # vLLM doesn't need a real API key unless you configured one.
-    api_key="EMPTY",
-)
-
-
 # ============================================================================
 # Main translation function
 # ============================================================================
@@ -120,7 +69,9 @@ vllm_client = OpenAI(
 def translate_sentences(
     sentences: list[dict[str, Any]],
     *,
-    online: bool,
+    openai_model: str,
+    reasoning_effort: str = "none",
+    openai_client: OpenAI,
 ) -> list[dict[str, str]]:
     """
     Translate a list of Latin sentences into Dutch.
@@ -142,10 +93,6 @@ def translate_sentences(
             ]
         }
 
-    online:
-        True  -> OpenAI
-        False -> local vLLM
-
     Returns
     -------
     List of:
@@ -163,12 +110,6 @@ def translate_sentences(
 
     if not sentences:
         return []
-
-    # ------------------------------------------------------------------------
-    # Prepare the common messages.
-    #
-    # These are IDENTICAL for OpenAI and vLLM.
-    # ------------------------------------------------------------------------
 
     user_message = json.dumps(
         {"sentences": sentences},
@@ -189,102 +130,30 @@ def translate_sentences(
 
     expected_ids = [str(sentence["id"]) for sentence in sentences]
 
-    # ------------------------------------------------------------------------
-    # OpenAI
-    # ------------------------------------------------------------------------
+    response = openai_client.responses.parse(
+        model=openai_model,
+        input=messages,
+        text_format=TranslationResult,
+        reasoning={"effort": reasoning_effort},
+        temperature=0,
+        top_p=1,
+        text={"verbosity": "low"},
+        max_output_tokens=128_000,
+    )
 
-    if online:
-
-        response = openai_client.responses.parse(
-            model=OPENAI_MODEL,
-            input=messages,
-            text_format=TranslationResult,
+    if response.output_parsed is None:
+        raise RuntimeError(
+            "OpenAI returned no parsed structured output."
         )
 
-        if response.output_parsed is None:
-            raise RuntimeError(
-                "OpenAI returned no parsed structured output."
-            )
+    result = response.output_parsed
 
-        result = response.output_parsed
-
-        # Token usage
-        if response.usage is not None:
-            reasoning_tokens = getattr(response.usage, "reasoning_tokens", 0) or 0
-            if reasoning_tokens > 0:
-                logger.info(
-                    "OpenAI tokens: input=%s output=%s reasoning=%s total=%s",
-                    response.usage.input_tokens,
-                    response.usage.output_tokens,
-                    reasoning_tokens,
-                    response.usage.total_tokens,
-                )
-            else:
-                logger.info(
-                    "OpenAI tokens: input=%s output=%s total=%s (no reasoning)",
-                    response.usage.input_tokens,
-                    response.usage.output_tokens,
-                    response.usage.total_tokens,
-                )
-
-    # ------------------------------------------------------------------------
-    # vLLM
-    # ------------------------------------------------------------------------
-
-    else:
-
-        response = vllm_client.chat.completions.create(
-            model=VLLM_MODEL,
-            messages=messages,
-
-            # vLLM structured output.
-            #
-            # Current vLLM uses "structured_outputs". The "json" value is
-            # the JSON Schema generated from our Pydantic model.
-            extra_body={
-                "structured_outputs": {
-                    "json": TRANSLATION_SCHEMA,
-                },
-            },
-
-            # Translation doesn't need stochastic generation.
-            temperature=0.0,
-        )
-
-        if not response.choices:
-            raise RuntimeError(
-                "vLLM returned no choices."
-            )
-
-        raw_output = response.choices[0].message.content
-
-        if not raw_output:
-            raise RuntimeError(
-                "vLLM returned empty output."
-            )
-
-        result = TranslationResult.model_validate_json(
-            raw_output
-        )
-
-        # Token usage
-        if response.usage is not None:
-            reasoning_tokens = getattr(response.usage, "reasoning_tokens", 0) or 0
-            if reasoning_tokens > 0:
-                logger.info(
-                    "vLLM tokens: input=%s output=%s reasoning=%s total=%s",
-                    response.usage.prompt_tokens,
-                    response.usage.completion_tokens,
-                    reasoning_tokens,
-                    response.usage.total_tokens,
-                )
-            else:
-                logger.info(
-                    "vLLM tokens: input=%s output=%s total=%s (no reasoning)",
-                    response.usage.prompt_tokens,
-                    response.usage.completion_tokens,
-                    response.usage.total_tokens,
-                )
+    tokens = {
+        "input": response.usage.input_tokens,
+        "cached": response.usage.input_tokens_details.cached_tokens,
+        "output": response.usage.output_tokens,
+        "reasoning": response.usage.output_tokens_details.reasoning_tokens,
+    }
 
     # ------------------------------------------------------------------------
     # Validate the result.
@@ -326,7 +195,7 @@ def translate_sentences(
             f"Response usage: {usage}"
         )
 
-    return [
+    return tokens, [
         {
             "id": item.id,
             "translation": item.translation,

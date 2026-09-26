@@ -8,7 +8,7 @@ from qdrant_client import QdrantClient
 # Configuration
 # ---------------------------------------------------------
 
-DB_DIR = Path("vector_db")
+DB_DIR = Path(__file__).resolve().parent / "vector_db"
 COLLECTION_NAME = "latin_sentences"
 MODEL_NAME = "BAAI/bge-m3"
 

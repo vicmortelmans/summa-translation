@@ -29,12 +29,14 @@ TOKEN_LOG_FILE = "tokens.csv"
 TIME_LOG_FILE = "time.csv"
 
 
-def get_responses(prompts: List[str], ai: str = "online") -> List[str]:
+def get_responses(prompts: List[str], ai: str = "online", system_prompt_file: str = None) -> List[str]:
     """Return model responses for a list of prompts.
 
     Args:
         prompts: List of prompt strings.
         ai: AI backend to use, one of "online"/"openai" or "local"/"vllm".
+        system_prompt_file: Optional path to a text file containing the system prompt.
+                           If None, uses the default system prompt.
 
     Returns:
         List of response strings in the same order as prompts.
@@ -44,15 +46,34 @@ def get_responses(prompts: List[str], ai: str = "online") -> List[str]:
     if any(not isinstance(p, str) for p in prompts):
         raise TypeError("each prompt must be a string")
 
+    system_prompt = _load_system_prompt(system_prompt_file)
+
     key = ai.lower()
     if key in {"online", "openai"}:
-        return _get_online_responses(prompts)
+        return _get_online_responses(prompts, system_prompt)
     if key in {"local", "vllm"}:
-        return _get_local_responses(prompts)
+        return _get_local_responses(prompts, system_prompt)
 
     raise ValueError(
         f"Unsupported ai selection: {ai}. Use 'online' or 'local'."
     )
+
+
+def _load_system_prompt(system_prompt_file: str = None) -> str:
+    """Load system prompt from file or return default.
+
+    Args:
+        system_prompt_file: Optional path to a text file containing the system prompt.
+
+    Returns:
+        System prompt string.
+    """
+    if system_prompt_file:
+        prompt_path = Path(system_prompt_file)
+        if not prompt_path.exists():
+            raise FileNotFoundError(f"System prompt file not found: {system_prompt_file}")
+        return prompt_path.read_text(encoding="utf-8").strip()
+    return "You are a helpful assistant."
 
 
 def _load_openai_api_key() -> str:
@@ -73,7 +94,7 @@ def _load_openai_api_key() -> str:
     )
 
 
-def _get_online_responses(prompts: List[str]) -> List[str]:
+def _get_online_responses(prompts: List[str], system_prompt: str) -> List[str]:
     try:
         import openai
     except ImportError as exc:
@@ -98,7 +119,7 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
             completion = client.chat.completions.create(
                 model=OPENAI_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 max_completion_tokens=10240,
@@ -108,7 +129,7 @@ def _get_online_responses(prompts: List[str]) -> List[str]:
             completion = client.ChatCompletion.create(
                 model=OPENAI_MODEL,
                 messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": prompt},
                 ],
                 max_tokens=10240,
@@ -211,12 +232,12 @@ def _is_truncated(completion, max_tokens_used: int) -> bool:
     return False
 
 
-def _tokenize_prompts(prompts: List[str], tokenizer) -> list[list[int]]:
+def _tokenize_prompts(prompts: List[str], tokenizer, system_prompt: str) -> list[list[int]]:
     # Note: this is NOT returning tokenized prompts, but rather the formatted prompts that vLLM expects.
     formatted_prompts: list[str] = []
     for prompt in prompts:
         messages = [
-            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "system", "content": system_prompt},
             {"role": "user", "content": prompt},
         ]
         formatted_prompt = tokenizer.apply_chat_template(messages,
@@ -227,7 +248,7 @@ def _tokenize_prompts(prompts: List[str], tokenizer) -> list[list[int]]:
     return formatted_prompts
 
 
-def _get_local_responses(prompts: List[str]) -> List[str]:
+def _get_local_responses(prompts: List[str], system_prompt: str) -> List[str]:
     try:
         from vllm import LLM, SamplingParams
     except ImportError as exc:
@@ -253,7 +274,7 @@ def _get_local_responses(prompts: List[str]) -> List[str]:
     tokenizer = llm.get_tokenizer()
     print(f"Using vLLM model: {VLLM_MODEL_PATH} with tokenizer: {tokenizer.__class__.__name__}")
     print(f"{tokenizer.chat_template}")
-    tokenized_prompts = _tokenize_prompts(prompts, tokenizer)
+    tokenized_prompts = _tokenize_prompts(prompts, tokenizer, system_prompt)
     sampling_params = SamplingParams(temperature=0.7, top_p=0.95, max_tokens=10240)
     responses = []
 
@@ -310,13 +331,19 @@ def main() -> None:
         help="AI backend to use (default: online)",
     )
     parser.add_argument(
+        "-s",
+        "--system-prompt-file",
+        default=None,
+        help="Path to a text file containing the system prompt (optional)",
+    )
+    parser.add_argument(
         "prompts",
         nargs="+",
         help="Prompts to send to the AI backend",
     )
     args = parser.parse_args()
 
-    responses = get_responses(args.prompts, ai=args.ai)
+    responses = get_responses(args.prompts, ai=args.ai, system_prompt_file=args.system_prompt_file)
     _print_responses(responses)
 
 

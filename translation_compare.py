@@ -591,11 +591,6 @@ def main():
         action="store_true",
         help="Do not include the Latin source.",
     )
-    parser.add_argument(
-        "--no-sentence-ids",
-        action="store_true",
-        help="Do not display sentence IDs.",
-    )
 
     args = parser.parse_args()
 

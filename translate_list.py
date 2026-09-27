@@ -130,16 +130,26 @@ def translate_sentences(
 
     expected_ids = [str(sentence["id"]) for sentence in sentences]
 
-    response = openai_client.responses.parse(
-        model=openai_model,
-        input=messages,
-        text_format=TranslationResult,
-        reasoning={"effort": reasoning_effort},
-        temperature=0,
-        top_p=1,
-        text={"verbosity": "low"},
-        max_output_tokens=128_000,
-    )
+    if reasoning_effort == "none":
+        response = openai_client.responses.parse(
+            model=openai_model,
+            input=messages,
+            text_format=TranslationResult,
+            reasoning={"effort": reasoning_effort},
+            temperature=0,
+            top_p=1,
+            text={"verbosity": "low"},
+            max_output_tokens=128_000,
+        )
+    else:  # temperature and top_p raise error in gpt-5.6-* when reasoning is enabled, so we omit them.
+        response = openai_client.responses.parse(
+            model=openai_model,
+            input=messages,
+            text_format=TranslationResult,
+            reasoning={"effort": reasoning_effort},
+            text={"verbosity": "low"},
+            max_output_tokens=128_000,
+        )
 
     if response.output_parsed is None:
         raise RuntimeError(

@@ -9,18 +9,71 @@ import xml.etree.ElementTree as ET
 
 import nltk
 from nltk.tokenize import PunktSentenceTokenizer
+from nltk.tokenize.punkt import PunktTrainer
 
 
-XML_PATH = Path(__file__).with_name("xml_latin_nl.xml")
-OUTPUT_PATH = Path(__file__).with_name("to_be_translated.tsv")
+BASE_DIR = Path(__file__).resolve().parent
+XML_PATH = BASE_DIR / "xml_latin_nl.xml"
+OUTPUT_PATH = BASE_DIR / "to_be_translated.tsv"
+TRAINING_CORPUS_PATH = BASE_DIR / "align" / "latin_plain.txt"
+
+# Biblical abbreviations commonly found in Latin texts
+BIBLICAL_ABBREVIATIONS = {
+    "act",
+    "apoc",
+    "apocalyps",
+    "colos",
+    "cor",
+    "dan",
+    "deut",
+    "deuteron",
+    "eccli",
+    "eph",
+    "esdr",
+    "exod",
+    "ezech",
+    "heb",
+    "ierem",
+    "ioan",
+    "isai",
+    "iudic",
+    "lib",
+    "luc",
+    "machab",
+    "matth",
+    "num",
+    "philip",
+    "prov",
+    "proverb",
+    "reg",
+    "rom",
+    "sap",
+    "thessal",
+    "tob",
+}
 
 
 def ensure_punkt() -> None:
     """Download NLTK sentence tokenizer data if it is not available."""
     try:
-        PunktSentenceTokenizer()
+        nltk.data.find("tokenizers/punkt")
     except LookupError:
         nltk.download("punkt")
+
+
+def load_training_tokenizer(corpus_path: Path) -> PunktSentenceTokenizer:
+    """Train a custom Punkt tokenizer from a corpus file."""
+    if not corpus_path.exists():
+        raise FileNotFoundError(f"Training corpus not found: {corpus_path}")
+
+    training_text = corpus_path.read_text(encoding="utf-8")
+    trainer = PunktTrainer(training_text)
+    params = trainer.get_params()
+    
+    # Add known biblical abbreviations to prevent false sentence boundaries
+    params.abbrev_types.update(BIBLICAL_ABBREVIATIONS)
+    
+    return PunktSentenceTokenizer(params)
 
 
 def text_of(element: ET.Element | None) -> str:
@@ -44,7 +97,7 @@ def iter_untranslated_lemmas(root: ET.Element):
 
 def main() -> None:
     ensure_punkt()
-    tokenizer = PunktSentenceTokenizer()
+    tokenizer = load_training_tokenizer(TRAINING_CORPUS_PATH)
 
     tree = ET.parse(XML_PATH)
     root = tree.getroot()

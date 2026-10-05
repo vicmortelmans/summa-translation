@@ -40,7 +40,8 @@ that is not present in the source. Prefer natural Dutch while maintaining the
 appropriate style and register.
 
 Translate every source sentence exactly once. Preserve each sentence's ID
-exactly. Do not translate or reproduce the reference sentences. Do not provide
+exactly. Make sure the output contains a translation for each of the input
+sentences. Do not translate or reproduce the reference sentences. Do not provide
 explanations, alternatives, notes, or commentary.
 """
 

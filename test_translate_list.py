@@ -19,6 +19,7 @@ import json
 import argparse
 import os
 import sys
+import shlex
 from datetime import datetime
 from pathlib import Path
 from openai import OpenAI
@@ -173,6 +174,17 @@ def write_tokens_output(timestamp: str, tokens: dict) -> Path:
     return output_path
 
 
+def build_batch_error_command(batch_start: int, batch_end: int) -> str:
+    """Return the original invocation with the batch start/end line numbers substituted."""
+    command_parts = [sys.executable, *sys.argv]
+    for i, part in enumerate(command_parts):
+        if part == "--start-id" and i + 1 < len(command_parts):
+            command_parts[i + 1] = str(batch_start)
+        elif part == "--end-id" and i + 1 < len(command_parts):
+            command_parts[i + 1] = str(batch_end)
+    return shlex.join(command_parts)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Batch translate range of TSV sentences")
     parser.add_argument("filepath", type=str, help="Path to input TSV file")
@@ -218,7 +230,36 @@ def main() -> None:
 
     for batch_index, batch_rows in enumerate(batches, start=1):
         payload = build_translation_input(batch_rows, reference_number=args.reference_number)
-        tokens, translations = translate_sentences(payload, openai_model=args.openai_model, reasoning_effort=args.reasoning_effort, openai_client=openai_client)
+        batch_start = int(batch_rows[0]["id"])
+        batch_end = int(batch_rows[-1]["id"])
+
+        try:
+            raise ValueError("Simulated error for testing retry logic")  # Simulate an error for testing
+            tokens, translations = translate_sentences(
+                payload,
+                openai_model=args.openai_model,
+                reasoning_effort=args.reasoning_effort,
+                openai_client=openai_client,
+            )
+        except ValueError:
+            try:
+                raise ValueError("Simulated error for testing retry logic")  # Simulate an error for testing
+                tokens, translations = translate_sentences(
+                    payload,
+                    openai_model=args.openai_model,
+                    reasoning_effort=args.reasoning_effort,
+                    openai_client=openai_client,
+                )
+            except ValueError:
+                error_file = BASE_DIR / "test_translate_list_errors.txt"
+                with error_file.open("a", encoding="utf-8") as handle:
+                    handle.write(f"{build_batch_error_command(batch_start, batch_end)}\n")
+                print(
+                    f"Retry failed for batch {batch_index}/{len(batches)} "
+                    f"({batch_start}-{batch_end}); logged command to {error_file}",
+                    file=sys.stderr,
+                )
+                continue
 
         for key in accumulated_tokens:
             accumulated_tokens[key] += tokens[key]

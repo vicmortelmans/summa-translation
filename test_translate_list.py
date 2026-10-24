@@ -135,7 +135,7 @@ def build_translation_input(rows: list[dict[str, str, str, str]], reference_numb
 
 def write_text_output(timestamp: str, items: list[dict], translations: list[dict]) -> Path:
     """Write a text file containing each source sentence and its translation."""
-    output_path = BASE_DIR / f"translations_{timestamp}.txt"
+    output_path = BASE_DIR / f"translations_{timestamp}.json"
 
     translation_map = {entry["id"]: entry["translation"] for entry in translations}
 
@@ -165,7 +165,7 @@ def write_text_output(timestamp: str, items: list[dict], translations: list[dict
 
 def write_tokens_output(timestamp: str, tokens: dict) -> Path:
     """Write a text file containing the token usage counts."""
-    output_path = BASE_DIR / f"tokens_{timestamp}.txt"
+    output_path = BASE_DIR / f"tokens_{timestamp}.json"
 
     output_path.write_text(
         json.dumps(tokens, ensure_ascii=False, indent=2),
@@ -234,7 +234,6 @@ def main() -> None:
         batch_end = int(batch_rows[-1]["id"])
 
         try:
-            raise ValueError("Simulated error for testing retry logic")  # Simulate an error for testing
             tokens, translations = translate_sentences(
                 payload,
                 openai_model=args.openai_model,
@@ -243,7 +242,6 @@ def main() -> None:
             )
         except ValueError:
             try:
-                raise ValueError("Simulated error for testing retry logic")  # Simulate an error for testing
                 tokens, translations = translate_sentences(
                     payload,
                     openai_model=args.openai_model,
@@ -273,7 +271,7 @@ def main() -> None:
         json_path = BASE_DIR / f"translation_input_{timestamp}{suffix}.json"
         json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        text_path = BASE_DIR / f"translations_{timestamp}{suffix}.txt"
+        text_path = BASE_DIR / f"translations_{timestamp}{suffix}.json"
         write_text_output(f"{timestamp}{suffix}", batch_rows, translations)
         write_tokens_output(f"{timestamp}{suffix}", tokens)
 

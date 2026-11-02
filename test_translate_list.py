@@ -9,9 +9,11 @@ This script:
 3. Builds the list of dictionaries required by translate_sentences() in
    translate_list.py.
 4. Calls translate_sentences(...).
-5. Writes the translations to a date-time-stamped text file, including the Latin
-   source sentence.
-6. Writes the finalized input list as JSON to a matching date-time-stamped file.
+5. Writes the translations to a JSON file, including the Latin source sentence.
+6. Writes the finalized input list as JSON, plus the token usage, alongside it.
+
+All output files are placed in a run-specific directory named
+`run-{timestamp}_{start_id}-{end_id}` in the script's directory.
 """
 
 import csv
@@ -163,16 +165,17 @@ def build_translation_input(rows: list[dict[str, str, str, str]], reference_numb
             {
                 "id": str(row["id"]),
                 "source": latin,
-                "references": references,
+                # "references": references,
+                "references": [],  # FOR DEBUGGING
             }
         )
 
     return payload
 
 
-def write_text_output(timestamp: str, items: list[dict], translations: list[dict]) -> Path:
+def write_text_output(output_dir: Path, stem: str, items: list[dict], translations: list[dict]) -> Path:
     """Write a text file containing each source sentence and its translation."""
-    output_path = BASE_DIR / f"translations_{timestamp}.json"
+    output_path = output_dir / f"translations_{stem}.json"
 
     translation_map = {entry["id"]: entry["translation"] for entry in translations}
 
@@ -200,9 +203,9 @@ def write_text_output(timestamp: str, items: list[dict], translations: list[dict
     return output_path
 
 
-def write_tokens_output(timestamp: str, tokens: dict) -> Path:
+def write_tokens_output(output_dir: Path, stem: str, tokens: dict) -> Path:
     """Write a text file containing the token usage counts."""
-    output_path = BASE_DIR / f"tokens_{timestamp}.json"
+    output_path = output_dir / f"tokens_{stem}.json"
 
     output_path.write_text(
         json.dumps(tokens, ensure_ascii=False, indent=2),
@@ -412,6 +415,17 @@ def main() -> None:
         print("No rows found for the requested range.")
         return
 
+    # All outputs of this run go into a single run-specific directory.
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    run_dir = BASE_DIR / f"run-{timestamp}_{args.start_id}-{args.end_id}"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Output directory: {run_dir}")
+    # Write the system prompt to a file for reference
+    (run_dir / "system_prompt.txt").write_text(SYSTEM_PROMPT, encoding="utf-8")
+    # Write the command line used to start the script
+    cmd_line = ' '.join([shlex.quote(arg) for arg in sys.argv])
+    (run_dir / "test_translate_list_command.txt").write_text(cmd_line, encoding="utf-8")
+
     # Split into batches of `batch_size` and process sequentially.
     total = len(rows)
     batches = [rows[i : i + args.batch_size] for i in range(0, total, args.batch_size)]
@@ -454,7 +468,7 @@ def main() -> None:
                     openai_client=openai_client,
                 )
             except ValueError:
-                error_file = BASE_DIR / "test_translate_list_errors.txt"
+                error_file = run_dir / "test_translate_list_errors.txt"
                 with error_file.open("a", encoding="utf-8") as handle:
                     handle.write(f"{build_batch_error_command(batch_start, batch_end)}\n")
                 print(
@@ -468,27 +482,25 @@ def main() -> None:
             accumulated_tokens[key] += tokens[key]
         all_translations.extend(translations)
 
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        suffix = f"_{args.start_id}-{args.end_id}_batch{batch_index}"
+        stem = f"batch{batch_index}"
         if args.tag:
-            suffix += f"_{args.tag}"
+            stem += f"_{args.tag}"
 
-        json_path = BASE_DIR / f"translation_input_{timestamp}{suffix}.json"
+        json_path = run_dir / f"translation_input_{stem}.json"
         json_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
-        text_path = BASE_DIR / f"translations_{timestamp}{suffix}.json"
-        write_text_output(f"{timestamp}{suffix}", batch_rows, translations)
-        write_tokens_output(f"{timestamp}{suffix}", tokens)
+        text_path = write_text_output(run_dir, stem, batch_rows, translations)
+        write_tokens_output(run_dir, stem, tokens)
 
         print(f"Batch {batch_index}/{len(batches)}: processed {len(batch_rows)} sentences")
         print(f"JSON input written to: {json_path}")
         print(f"Translations written to: {text_path}")
 
-    suffix = f"_{args.start_id}-{args.end_id}_all"
+    all_stem = "all"
     if args.tag:
-        suffix += f"_{args.tag}"
-    write_text_output(f"{timestamp}{suffix}", rows, all_translations)
-    write_tokens_output(f"{timestamp}{suffix}", accumulated_tokens)
+        all_stem += f"_{args.tag}"
+    write_text_output(run_dir, all_stem, rows, all_translations)
+    write_tokens_output(run_dir, all_stem, accumulated_tokens)
 
 if __name__ == "__main__":
     main()

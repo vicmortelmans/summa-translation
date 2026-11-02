@@ -1,0 +1,30 @@
+{
+"properties": {
+"items": {
+"description": "Array of items",
+"items": {
+    "properties": {
+    "definition": {
+        "description": "Item title",
+        "type": "string"
+    },
+    "lemma": {
+        "description": "meaning of the word in dutch",
+        "type": "string"
+    }
+    },
+    "required": [
+    "lemma",
+    "definition"
+    ],
+    "type": "object"
+},
+"type": "array"
+}
+},
+"required": [
+"items"
+],
+"title": "ListResponse",
+"type": "object"
+}

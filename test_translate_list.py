@@ -165,8 +165,7 @@ def build_translation_input(rows: list[dict[str, str, str, str]], reference_numb
             {
                 "id": str(row["id"]),
                 "source": latin,
-                # "references": references,
-                "references": [],  # FOR DEBUGGING
+                "references": references,
             }
         )
 

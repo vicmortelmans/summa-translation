@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 
 from sentence_transformers import SentenceTransformer
@@ -19,7 +20,26 @@ MODEL_NAME = "BAAI/bge-m3"
 
 client = QdrantClient(path=str(DB_DIR))
 
-model = SentenceTransformer(MODEL_NAME)
+TOKEN_FILE = Path(__file__).resolve().parent.parent / ".hf_token"   # repo root
+
+def _load_hf_token() -> str | None:
+    token = os.environ.get("HF_TOKEN")
+    if token:
+        return token.strip()
+
+    if TOKEN_FILE.exists():
+        token = TOKEN_FILE.read_text(encoding="utf-8").strip()
+        if token:
+            return token
+
+    return None
+
+
+hf_token = _load_hf_token()
+if hf_token:
+    os.environ["HF_TOKEN"] = hf_token          # harmless; other HF libs pick it up too
+
+model = SentenceTransformer(MODEL_NAME, token=hf_token)   # explicit, no ordering surprise
 
 
 # ---------------------------------------------------------

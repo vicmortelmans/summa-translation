@@ -2,8 +2,13 @@
 
 ## Implemented
 
-- Four-stage batch workflow (`batch_workflow.sh`):
-  input → references → glossary → translation.
+- Five-stage batch workflow (`batch_workflow.sh`):
+  input → references → glossary → translation → merge.
+- `batch_merge.py` merges all translation batches of a job into
+  `<job>/40-merge/translations.json`, accumulates token counts per category
+  into `<job>/40-merge/tokens.json`, and logs its command line to
+  `<job>/40-merge/batch_merge_command.txt`. It accepts `--tag <tag>` or a
+  positional job name/path.
 - `batch_glossary.py` builds per-sentence glossary entries from the Axters
   lexicon using CLTK lemmatization and writes them to `<job>/25_glossary/`.
   Output objects keep all input fields and add

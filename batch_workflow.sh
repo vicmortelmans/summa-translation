@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 #
-# batch_workflow.sh - run the four batch stages in order:
+# batch_workflow.sh - run the five batch stages in order:
 #
 #   1. batch_input.py               -> run-<tag>/10_input
 #   2. batch_reference_sentences.py -> run-<tag>/20_references
 #   3. batch_glossary.py            -> run-<tag>/25_glossary
 #   4. batch_translate.py           -> run-<tag>/30_translation (+ tokens/)
+#   5. batch_merge.py               -> run-<tag>/40-merge
 #
 # Usage:
 #   batch_workflow.sh <tsv-file> <start-id> <end-id> <tag> [options]
@@ -72,3 +73,6 @@ for f in "$RUN_DIR"/25_glossary/*.json; do
         --system-prompt "$SYSTEM_PROMPT" \
         "${TRANSLATE_ARGS[@]}"
 done
+
+# 5. Merge all translation batches and accumulate token usage.
+"$PY" batch_merge.py --tag "$TAG"

@@ -13,7 +13,7 @@ API) with two kinds of supporting context:
 
 ## Pipeline
 
-`batch_workflow.sh <tsv-file> <start-id> <end-id> <tag> [options]` runs four
+`batch_workflow.sh <tsv-file> <start-id> <end-id> <tag> [options]` runs five
 stages; every stage writes to its own numbered directory under `run-<tag>/`
 (run directories are git-ignored):
 
@@ -23,12 +23,14 @@ stages; every stage writes to its own numbered directory under `run-<tag>/`
 | 2 | `batch_reference_sentences.py` | `10_input/*.json` | `20_references/*.json` |
 | 3 | `batch_glossary.py` | `20_references/*.json` | `25_glossary/*.json` |
 | 4 | `batch_translate.py` | `25_glossary/*.json` | `30_translation/*.json` + `30_translation/tokens/` |
+| 5 | `batch_merge.py` | `30_translation/*.json` + `30_translation/tokens/*.json` | `40-merge/translations.json`, `40-merge/tokens.json` |
 
 Each batch file keeps the input filename. Stage scripts also append their own
 command line to a log file in their output directory
 (`batch_input_command.txt`, `batch_reference_sentences_command.txt`,
-`batch_glossary_command.txt`, `batch_translate_command.txt`; the last one is
-written by `batch_translate.py`).
+`batch_glossary_command.txt`, `batch_translate_command.txt`,
+`batch_merge_command.txt`; the last two are written by `batch_translate.py`
+and `batch_merge.py`).
 
 ### Stage details
 
@@ -50,6 +52,12 @@ written by `batch_translate.py`).
    returned `id`s to equal the input `id`s exactly and in order, writes the
    model output as-is (not merged with the input) and stores token usage under
    `tokens/` in the output directory.
+5. `batch_merge.py` — merges all `30_translation/*.json` files in natural
+   filename order into `40-merge/translations.json` (a single
+   `{"translations": [...]}` object), sums every token category from
+   `30_translation/tokens/*.json` into `40-merge/tokens.json`, and appends its
+   command line to `40-merge/batch_merge_command.txt`. It rejects duplicate
+   translation ids across batches.
 
 ## Data structures
 

@@ -1,0 +1,34 @@
+{
+  "$defs": {
+    "Translation": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "translation": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "id",
+        "translation"
+      ],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "translations": {
+      "items": {
+        "$ref": "#/$defs/Translation"
+      },
+      "type": "array"
+    }
+  },
+  "required": [
+    "translations"
+  ],
+  "title": "TranslationResult",
+  "type": "object"
+}

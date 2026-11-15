@@ -1,3 +1,9 @@
 .openai_api_key
 .hf_token
 env/
+batch*/
+run*/
+bm25/
+*.db
+*.docx
+

@@ -2,6 +2,6 @@ from cltk.lemmatize.lat import LatinBackoffLemmatizer
 
 lemmatizer = LatinBackoffLemmatizer()
 
-tokens = ["domini", "fuerunt", "dixerat", "iustitiae"]
+tokens = ["appetitus"]
 
 print(lemmatizer.lemmatize(tokens))

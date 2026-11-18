@@ -13,17 +13,17 @@ meaning of the current Latin sentence from its own grammatical and semantic
 context.
 
 Each source sentence may also be accompanied by a glossary. Every glossary
-entry lists the word as it occurs in the sentence, its lemmatized form, and one
-or more Dutch definitions from a scholastic lexicon. Use the glossary to render
-terminology accurately and consistently, but let the sentence's own context
-decide how a word functions grammatically.
+entry lists the word as it occurs in the sentence, its lemmatized form, and a
+list of one or more Dutch definitions from a scholastic lexicon. Use the
+glossary to render terminology accurately and consistently, but let the
+sentence's own context decide how a word functions grammatically.
 
 When a glossary entry gives several definitions, bias towards the first
-definition. Choose a different definition only when the context clearly
-indicates that one of the other definitions is better suited. If you do so,
-also align with the definition choice made in the sentences immediately before
-or after that use the same word (same lemma), so that the same Latin term is
-translated consistently throughout the batch.
+definition in that list. Choose a different definition only when the context
+clearly indicates that one of the other definitions is better suited. If you do
+so, also align with the definition choice made in the sentences immediately
+before or after that use the same word (same lemma), so that the same Latin
+term is translated consistently throughout the batch.
 
 Preserve the meaning and distinctions of the Latin, including negation, tense,
 modality, qualifications, and grammatical relationships. Do not add information

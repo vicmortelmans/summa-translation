@@ -1,0 +1,38 @@
+{
+  "$defs": {
+    "TermResult": {
+      "additionalProperties": false,
+      "properties": {
+        "lemma": {"type": "string"},
+        "applied": {"type": "boolean"},
+        "rendering": {"type": "string"},
+        "reason": {"type": "string"}
+      },
+      "required": ["lemma", "applied", "rendering", "reason"],
+      "type": "object"
+    },
+    "Revision": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {"type": "string"},
+        "translation": {"type": "string"},
+        "terms": {
+          "items": {"$ref": "#/$defs/TermResult"},
+          "type": "array"
+        }
+      },
+      "required": ["id", "translation", "terms"],
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "translations": {
+      "items": {"$ref": "#/$defs/Revision"},
+      "type": "array"
+    }
+  },
+  "required": ["translations"],
+  "title": "TerminologyRevision",
+  "type": "object"
+}

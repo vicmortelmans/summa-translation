@@ -13,6 +13,11 @@ translation pipeline for Thomas Aquinas' *Summa Theologiae*.
 Related project artifacts outside `.cline/`:
 
 - `batch_workflow.sh` — end-to-end pipeline entry point.
+- `terminology_workflow.sh` — applies the human-reviewed terminology decisions
+  after the batch pipeline (`run-<tag>/50-terminology/`).
 - `prompts/translate.txt` — system prompt used for translation.
+- `prompts/terminology-review.txt` — system prompt used for terminology review.
 - `schemas/translate.schema.json` — structured output schema for translation.
+- `schemas/terminology_review.schema.json` — structured output schema for
+  terminology revisions.
 - `axters-mistral/` — Axters scholastic lexicon and its CLTK lemmatization.

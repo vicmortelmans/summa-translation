@@ -6,8 +6,10 @@ The script reads a batch JSON file (a list of objects that each contain a
 ``LatinBackoffLemmatizer`` and looks the lemma up in the Axters scholastic
 lexicon.  Matches are added to the input objects under a ``glossary`` field:
 a list of objects with the word as it appears in the sentence (``source``),
-its lemmatized form (``lemma``) and the Dutch definition from the lexicon
-(``translation``).
+its lemmatized form (``lemma``) and an ordered list of Dutch definitions from
+the lexicon (``definitions``).  A word that is an exact lexicon headword uses
+that entry only; when a CLTK lemma matches several lexicon entries without an
+exact headword match, their definitions are merged into one ordered list.
 
 Output is written to ``<job name>/25_glossary/<input file name>``, where the
 job name is the parent directory of the directory containing the input file
@@ -68,28 +70,50 @@ def normalize_key(value: str) -> str:
     return " ".join(value.lower().split())
 
 
-def _add_to_index(index: Dict[str, dict], key: str, entry: dict) -> None:
-    """Add an entry to an index, preferring entries whose lemma equals the key.
+def split_definition(definition: str) -> List[str]:
+    """Split a lexicon definition into its separate senses."""
+    return [part.strip() for part in definition.split(",") if part.strip()]
 
-    Several lexicon entries can share the same CLTK lemma (e.g. ``ago`` is the
-    CLTK lemma of ``actus``, ``agens`` and ``agere``).  In that case the entry
-    whose own lemma matches the key (``agere`` for the form ``agere``) is the
-    most useful one, so it takes precedence.
+
+def merge_definitions(definitions: List[str]) -> List[str]:
+    """Merge definition lists by interleaving them round-robin.
+
+    The shortest list comes first, so ``["a, b, c", "d, e"]`` becomes
+    ``["d", "a", "e", "b", "c"]``.  Equal-length lists keep their given order
+    (lexicon file order).  Duplicate senses are dropped case-insensitively,
+    keeping the first spelling.
     """
-    if not key:
-        return
+    lists = [split_definition(definition) for definition in definitions]
+    lists = [parts for parts in lists if parts]
+    if not lists:
+        return []
+    if len(lists) == 1:
+        return lists[0]
 
-    current = index.get(key)
-    if current is None:
-        index[key] = entry
-        return
+    lists.sort(key=len)  # stable: shortest first, ties in lexicon order
 
-    if normalize_key(entry.get("lemma", "")) == key and normalize_key(current.get("lemma", "")) != key:
-        index[key] = entry
+    merged: List[str] = []
+    seen: set[str] = set()
+    for index in range(max(len(parts) for parts in lists)):
+        for parts in lists:
+            if index >= len(parts):
+                continue
+            sense = parts[index]
+            key = sense.lower()
+            if key not in seen:
+                seen.add(key)
+                merged.append(sense)
+
+    return merged
 
 
-def load_lexicon(path: Path) -> tuple[Dict[str, dict], Dict[str, dict]]:
-    """Load the Axters lexicon and return indexes by CLTK lemma and by lemma."""
+def load_lexicon(path: Path) -> tuple[Dict[str, List[dict]], Dict[str, dict]]:
+    """Load the Axters lexicon and return indexes by CLTK lemma and by lemma.
+
+    ``by_cltk`` maps a CLTK lemma to *all* lexicon entries that share it, so
+    that ambiguous CLTK lemmas can be merged.  ``by_lemma`` maps a lexicon
+    headword to its single entry and is used for exact matches.
+    """
     try:
         entries = json.loads(path.read_text(encoding="utf-8"))
     except FileNotFoundError:
@@ -103,13 +127,19 @@ def load_lexicon(path: Path) -> tuple[Dict[str, dict], Dict[str, dict]]:
         print(f"Lexicon file '{path}' must contain a JSON array.", file=sys.stderr)
         sys.exit(1)
 
-    by_cltk: Dict[str, dict] = {}
+    by_cltk: Dict[str, List[dict]] = {}
     by_lemma: Dict[str, dict] = {}
     for entry in entries:
         if not isinstance(entry, dict) or "definition" not in entry:
             continue
-        _add_to_index(by_cltk, normalize_key(entry.get("cltk", "")), entry)
-        _add_to_index(by_lemma, normalize_key(entry.get("lemma", "")), entry)
+
+        cltk_key = normalize_key(entry.get("cltk", ""))
+        if cltk_key:
+            by_cltk.setdefault(cltk_key, []).append(entry)
+
+        lemma_key = normalize_key(entry.get("lemma", ""))
+        if lemma_key:
+            by_lemma.setdefault(lemma_key, entry)
 
     return by_cltk, by_lemma
 
@@ -119,30 +149,55 @@ def load_lexicon(path: Path) -> tuple[Dict[str, dict], Dict[str, dict]]:
 # ============================================================================
 
 
-def find_glossary_entry(token: str, lemma: str, by_cltk: Dict[str, dict], by_lemma: Dict[str, dict]) -> dict | None:
-    """Return the lexicon entry for a token and its lemma, if any."""
-    for key in (normalize_key(lemma), normalize_key(token)):
-        if not key:
-            continue
-        entry = by_lemma.get(key) or by_cltk.get(key)
-        if entry is not None:
-            return entry
+def resolve_entry(
+    source: str,
+    lemma: str,
+    by_cltk: Dict[str, List[dict]],
+    by_lemma: Dict[str, dict],
+) -> tuple[str, str, List[dict]] | None:
+    """Resolve a word to an exact lexicon entry or to a group of entries.
+
+    Returns ``(kind, lemma_key, entries)`` where ``kind`` is ``"exact"`` when
+    the word or its lemma is a lexicon headword, and ``"group"`` when only the
+    CLTK lemma (or, as a last resort, the surface form) matched one or more
+    entries.  Returns ``None`` when nothing matches.
+    """
+    lemma_key = normalize_key(lemma)
+    surface_key = normalize_key(source)
+
+    # An exact headword match wins; the word as it appears in the sentence
+    # takes precedence over its lemmatized form.
+    for key in (surface_key, lemma_key):
+        if key and key in by_lemma:
+            return ("exact", lemma_key, [by_lemma[key]])
+
+    # Otherwise fall back to the CLTK lemma, then to the surface form.
+    for key in (lemma_key, surface_key):
+        if key and key in by_cltk:
+            return ("group", lemma_key, list(by_cltk[key]))
+
     return None
 
 
 def build_glossary(
     sentence: str,
     lemmatizer: LatinBackoffLemmatizer,
-    by_cltk: Dict[str, dict],
+    by_cltk: Dict[str, List[dict]],
     by_lemma: Dict[str, dict],
     lemma_cache: Dict[str, str],
 ) -> List[dict]:
     """Return the glossary entries found in a single sentence.
 
     Each entry contains the word as it appears in the sentence (``source``),
-    its lemmatized form (``lemma``) and the Dutch definition from the lexicon
-    (``translation``).  Duplicate lemmas are dropped, preserving the order in
-    which the words first appear in the sentence.
+    its lemmatized form (``lemma``) and an ordered list of Dutch definitions
+    (``definitions``).
+
+    A word that is an exact lexicon headword uses that entry only.  A word that
+    matches only a CLTK lemma shared by several lexicon entries gets the merged
+    definitions of all of them, because none of them is primary.  An exact
+    headword match suppresses the merged entry for the same CLTK lemma within
+    the sentence.  Duplicate terms are dropped, preserving the order in which
+    the words first appear.
     """
     tokens = WORD_PATTERN.findall(sentence)
     if not tokens:
@@ -154,24 +209,50 @@ def build_glossary(
         for token, lemma in lemmatizer.lemmatize(unknown):
             lemma_cache[token] = lemma
 
-    glossary: List[dict] = []
-    seen: set[str] = set()
+    resolutions: List[tuple[str, str, str, str, List[dict]]] = []
     for source, token in zip(tokens, lowered):
         lemma = lemma_cache.get(token, token)
-        entry = find_glossary_entry(token, lemma, by_cltk, by_lemma)
-        if entry is None:
+        resolved = resolve_entry(source, lemma, by_cltk, by_lemma)
+        if resolved is None:
+            continue
+        kind, lemma_key, entries = resolved
+        resolutions.append((source, lemma, kind, lemma_key, entries))
+
+    exact_lemmas = {
+        lemma_key
+        for _source, _lemma, kind, lemma_key, _entries in resolutions
+        if kind == "exact"
+    }
+
+    glossary: List[dict] = []
+    seen: set[tuple[str, ...]] = set()
+    for source, lemma, kind, lemma_key, entries in resolutions:
+        if not lemma_key:
             continue
 
-        lemma_key = normalize_key(lemma)
-        if not lemma_key or lemma_key in seen:
+        if kind == "exact":
+            entry = entries[0]
+            dedupe_key = ("exact", lemma_key, normalize_key(entry.get("lemma", "")))
+            definitions = split_definition(entry["definition"])
+        else:
+            if lemma_key in exact_lemmas:
+                continue
+            dedupe_key = ("group", lemma_key)
+            definitions = (
+                split_definition(entries[0]["definition"])
+                if len(entries) == 1
+                else merge_definitions([entry["definition"] for entry in entries])
+            )
+
+        if not definitions or dedupe_key in seen:
             continue
 
-        seen.add(lemma_key)
+        seen.add(dedupe_key)
         glossary.append(
             {
                 "source": source,
                 "lemma": lemma,
-                "translation": entry["definition"],
+                "definitions": definitions,
             }
         )
 
@@ -181,7 +262,7 @@ def build_glossary(
 def build_translation_input(
     rows: list[dict],
     lemmatizer: LatinBackoffLemmatizer,
-    by_cltk: Dict[str, dict],
+    by_cltk: Dict[str, List[dict]],
     by_lemma: Dict[str, dict],
 ) -> list[dict]:
     """Compose the output rows: the input fields plus a ``glossary`` field."""

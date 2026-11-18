@@ -27,6 +27,10 @@ OUTPUT_FILE = "axters-scholastiek-lexicon-1937-cltk.json"
 # (e.g. in "abstinere (se)") are not part of the lemma itself.
 WORD_PATTERN = re.compile(r"[A-Za-z]+")
 
+# Morpheus/Perseus lemma IDs append a homonym number (e.g. "appeto1",
+# "lego2").  Strip it so the ``cltk`` field contains a plain lemma.
+HOMONYM_SUFFIX_PATTERN = re.compile(r"\d+$")
+
 
 def lemmatize_lemma(lemmatizer: LatinBackoffLemmatizer, lemma: str) -> str:
     """Return the CLTK lemmatization of a lexicon lemma.
@@ -42,7 +46,7 @@ def lemmatize_lemma(lemmatizer: LatinBackoffLemmatizer, lemma: str) -> str:
     # returned with the lemma "punc", but they are already filtered out by
     # WORD_PATTERN.
     lemmas = [
-        cltk_lemma
+        HOMONYM_SUFFIX_PATTERN.sub("", cltk_lemma)
         for _token, cltk_lemma in lemmatizer.lemmatize(tokens)
         if cltk_lemma != "punc"
     ]

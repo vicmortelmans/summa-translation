@@ -161,7 +161,7 @@
   },
   {
     "lemma": "accidens",
-    "cltk": "accido1",
+    "cltk": "accido",
     "definition": "toeval, bijkomstigheid"
   },
   {
@@ -231,7 +231,7 @@
   },
   {
     "lemma": "actor",
-    "cltk": "actor1",
+    "cltk": "actor",
     "definition": "bedrijver, zaakwaarnemer, eiser, aanlegger"
   },
   {
@@ -831,7 +831,7 @@
   },
   {
     "lemma": "anathema",
-    "cltk": "anathema1",
+    "cltk": "anathema",
     "definition": "banvloek, kerkban"
   },
   {
@@ -1076,7 +1076,7 @@
   },
   {
     "lemma": "appetitus",
-    "cltk": "appeto1",
+    "cltk": "appeto",
     "definition": "streefvermogen"
   },
   {
@@ -1906,7 +1906,7 @@
   },
   {
     "lemma": "censura",
-    "cltk": "censeo1",
+    "cltk": "censeo",
     "definition": "kerkelijke straf, censuur, boekenkeuring"
   },
   {
@@ -2036,7 +2036,7 @@
   },
   {
     "lemma": "clementia",
-    "cltk": "clemens1",
+    "cltk": "clemens",
     "definition": "goedertierenheid, vergevensgezindheid"
   },
   {
@@ -2281,7 +2281,7 @@
   },
   {
     "lemma": "commodatum",
-    "cltk": "commodo2",
+    "cltk": "commodo",
     "definition": "bruikleen, leencontract"
   },
   {
@@ -2316,7 +2316,7 @@
   },
   {
     "lemma": "communio",
-    "cltk": "communio1",
+    "cltk": "communio",
     "definition": "gemeenschap, verkeer"
   },
   {
@@ -2326,7 +2326,7 @@
   },
   {
     "lemma": "communitas",
-    "cltk": "communio1",
+    "cltk": "communio",
     "definition": "gemeenschappelijkheid, gemeenschap"
   },
   {
@@ -2571,7 +2571,7 @@
   },
   {
     "lemma": "concretus",
-    "cltk": "concretus2",
+    "cltk": "concretus",
     "definition": "concreet"
   },
   {
@@ -3046,7 +3046,7 @@
   },
   {
     "lemma": "contactus",
-    "cltk": "contingo1",
+    "cltk": "contingo",
     "definition": "aanraking"
   },
   {
@@ -3106,7 +3106,7 @@
   },
   {
     "lemma": "contingens",
-    "cltk": "contingo1",
+    "cltk": "contingo",
     "definition": "wisselvallig, niet noodzakelijk, niet noodzakelijk volgend"
   },
   {
@@ -4021,7 +4021,7 @@
   },
   {
     "lemma": "detestatio",
-    "cltk": "detestatio1",
+    "cltk": "detestatio",
     "definition": "verafschuwing"
   },
   {
@@ -4256,7 +4256,7 @@
   },
   {
     "lemma": "discursus",
-    "cltk": "discursus2",
+    "cltk": "discursus",
     "definition": "redenering"
   },
   {
@@ -5406,7 +5406,7 @@
   },
   {
     "lemma": "extrinsecus",
-    "cltk": "extrinsecus1",
+    "cltk": "extrinsecus",
     "definition": "uiterlijk"
   },
   {
@@ -5691,7 +5691,7 @@
   },
   {
     "lemma": "fornicatio",
-    "cltk": "fornicatio1",
+    "cltk": "fornicatio",
     "definition": "ontucht, hoererij, hoerdom, schoffering"
   },
   {
@@ -6021,7 +6021,7 @@
   },
   {
     "lemma": "harmonia",
-    "cltk": "harmonia1",
+    "cltk": "harmonia",
     "definition": "eenstemmigheid"
   },
   {
@@ -6926,7 +6926,7 @@
   },
   {
     "lemma": "incestus",
-    "cltk": "incestus1",
+    "cltk": "incestus",
     "definition": "bloedschennis, bloedschande"
   },
   {
@@ -7551,7 +7551,7 @@
   },
   {
     "lemma": "ingenitus",
-    "cltk": "ingenitus1",
+    "cltk": "ingenitus",
     "definition": "ongeworden, ongeboren"
   },
   {
@@ -7971,7 +7971,7 @@
   },
   {
     "lemma": "intrinsecus",
-    "cltk": "intrinsecus2",
+    "cltk": "intrinsecus",
     "definition": "innerlijk"
   },
   {
@@ -8141,7 +8141,7 @@
   },
   {
     "lemma": "irritus",
-    "cltk": "irritus1",
+    "cltk": "irritus",
     "definition": "nietig, ongeldig"
   },
   {
@@ -8421,7 +8421,7 @@
   },
   {
     "lemma": "libere",
-    "cltk": "libo1",
+    "cltk": "libo",
     "definition": "vrijwillig, vrij"
   },
   {
@@ -8461,12 +8461,12 @@
   },
   {
     "lemma": "licite",
-    "cltk": "liceo1",
+    "cltk": "liceo",
     "definition": "geoorloofd"
   },
   {
     "lemma": "licitus",
-    "cltk": "liceo1",
+    "cltk": "liceo",
     "definition": "geoorloofd"
   },
   {
@@ -8801,7 +8801,7 @@
   },
   {
     "lemma": "mandans",
-    "cltk": "mando1",
+    "cltk": "mando",
     "definition": "lastgever, opdrachtgever"
   },
   {
@@ -8816,7 +8816,7 @@
   },
   {
     "lemma": "mandatum",
-    "cltk": "mando1",
+    "cltk": "mando",
     "definition": "lastgeving"
   },
   {
@@ -9431,7 +9431,7 @@
   },
   {
     "lemma": "morosus",
-    "cltk": "morosus1",
+    "cltk": "morosus",
     "definition": "aanhoudend"
   },
   {
@@ -10211,7 +10211,7 @@
   },
   {
     "lemma": "offensa",
-    "cltk": "offendo1",
+    "cltk": "offendo",
     "definition": "belediging"
   },
   {
@@ -10566,7 +10566,7 @@
   },
   {
     "lemma": "palpo",
-    "cltk": "palpo1",
+    "cltk": "palpo",
     "definition": "prijzen"
   },
   {
@@ -10761,7 +10761,7 @@
   },
   {
     "lemma": "passive",
-    "cltk": "passivus1",
+    "cltk": "passivus",
     "definition": "lijdelijkerwijs"
   },
   {
@@ -11191,7 +11191,7 @@
   },
   {
     "lemma": "physica",
-    "cltk": "physica1",
+    "cltk": "physica",
     "definition": "natuurlijke wijsbegeerte, natuurkunde"
   },
   {
@@ -11211,7 +11211,7 @@
   },
   {
     "lemma": "pietas",
-    "cltk": "pietas1",
+    "cltk": "pietas",
     "definition": "hoogachting, eerbiedige voorkomendheid"
   },
   {
@@ -11681,7 +11681,7 @@
   },
   {
     "lemma": "praedicatum",
-    "cltk": "praedico1",
+    "cltk": "praedico",
     "definition": "gezegde, predikaat"
   },
   {
@@ -11736,7 +11736,7 @@
   },
   {
     "lemma": "praelegatum",
-    "cltk": "praelego1",
+    "cltk": "praelego",
     "definition": "vooruitmaking"
   },
   {
@@ -11781,7 +11781,7 @@
   },
   {
     "lemma": "praes",
-    "cltk": "praes2",
+    "cltk": "praes",
     "definition": "borg, borgtocht"
   },
   {
@@ -12496,7 +12496,7 @@
   },
   {
     "lemma": "puber",
-    "cltk": "pubes1",
+    "cltk": "pubes",
     "definition": "geslachtsrijp"
   },
   {
@@ -12571,7 +12571,7 @@
   },
   {
     "lemma": "pulcher",
-    "cltk": "pulcher1",
+    "cltk": "pulcher",
     "definition": "schoon"
   },
   {
@@ -12626,7 +12626,7 @@
   },
   {
     "lemma": "puritas",
-    "cltk": "puritas1",
+    "cltk": "puritas",
     "definition": "reinheid"
   },
   {
@@ -12851,7 +12851,7 @@
   },
   {
     "lemma": "rapina",
-    "cltk": "rapina1",
+    "cltk": "rapina",
     "definition": "roof, gewelddadige ontvreemding"
   },
   {
@@ -13031,7 +13031,7 @@
   },
   {
     "lemma": "rebellio",
-    "cltk": "rebellio1",
+    "cltk": "rebellio",
     "definition": "opstand, oproer"
   },
   {
@@ -13066,7 +13066,7 @@
   },
   {
     "lemma": "recidere",
-    "cltk": "recido1",
+    "cltk": "recido",
     "definition": "herhalen"
   },
   {
@@ -14401,7 +14401,7 @@
   },
   {
     "lemma": "severus",
-    "cltk": "severus1",
+    "cltk": "severus",
     "definition": "streng"
   },
   {
@@ -14876,7 +14876,7 @@
   },
   {
     "lemma": "spurius",
-    "cltk": "spurius1",
+    "cltk": "spurius",
     "definition": "onecht"
   },
   {
@@ -16166,7 +16166,7 @@
   },
   {
     "lemma": "unio",
-    "cltk": "unio2",
+    "cltk": "unio",
     "definition": "vereniging"
   },
   {
@@ -16241,12 +16241,12 @@
   },
   {
     "lemma": "usucapere",
-    "cltk": "usucapio1",
+    "cltk": "usucapio",
     "definition": "door verjaring verkrijgen"
   },
   {
     "lemma": "usucapio",
-    "cltk": "usucapio1",
+    "cltk": "usucapio",
     "definition": "verjaring tot verkrijging"
   },
   {
@@ -16601,7 +16601,7 @@
   },
   {
     "lemma": "vis",
-    "cltk": "volo1",
+    "cltk": "volo",
     "definition": "kracht, macht"
   },
   {
